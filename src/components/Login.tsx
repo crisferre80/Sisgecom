@@ -37,11 +37,15 @@ const Login: React.FC = () => {
         if (error) throw error;
         navigate('/');
       }
-    } catch (error: any) {
-      if (error.message.includes('Invalid login credentials')) {
-        setError('Credenciales inválidas. Verifica tu email y contraseña, o crea una cuenta nueva.');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid login credentials')) {
+          setError('Credenciales inválidas. Verifica tu email y contraseña, o crea una cuenta nueva.');
+        } else {
+          setError(error.message || 'Error en la operación');
+        }
       } else {
-        setError(error.message || 'Error en la operación');
+        setError('Error en la operación');
       }
     } finally {
       setLoading(false);
@@ -58,13 +62,17 @@ const Login: React.FC = () => {
       alert('Usuario demo creado exitosamente. Ahora puedes iniciar sesión con admin@demo.com / admin123');
       setEmail('admin@demo.com');
       setPassword('admin123');
-    } catch (error: any) {
-      if (error.message.includes('User already registered')) {
-        setError('El usuario demo ya existe. Puedes iniciar sesión con admin@demo.com / admin123');
-        setEmail('admin@demo.com');
-        setPassword('admin123');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        if (error.message.includes('User already registered')) {
+          setError('El usuario demo ya existe. Puedes iniciar sesión con admin@demo.com / admin123');
+          setEmail('admin@demo.com');
+          setPassword('admin123');
+        } else {
+          setError(error.message || 'Error al crear usuario demo');
+        }
       } else {
-        setError(error.message || 'Error al crear usuario demo');
+        setError('Error al crear usuario demo');
       }
     } finally {
       setLoading(false);

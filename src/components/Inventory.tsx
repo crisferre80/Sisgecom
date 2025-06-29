@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, 
   Search, 
-  Filter, 
   Edit, 
   Trash2, 
   Package,
   AlertTriangle,
   Download,
-  Upload,
   ScanLine
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -29,31 +27,7 @@ const Inventory: React.FC = () => {
 
   const categories = ['Electrónicos', 'Ropa', 'Hogar', 'Deportes', 'Libros', 'Otros'];
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  useEffect(() => {
-    filterProducts();
-  }, [products, searchTerm, filterCategory, showLowStock]);
-
-  const loadProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      setProducts(data || []);
-    } catch (error) {
-      console.error('Error loading products:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterProducts = () => {
+  const filterProducts = useCallback(() => {
     let filtered = [...products];
 
     if (searchTerm) {
@@ -72,6 +46,30 @@ const Inventory: React.FC = () => {
     }
 
     setFilteredProducts(filtered);
+  }, [products, searchTerm, filterCategory, showLowStock]);
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  useEffect(() => {
+    filterProducts();
+  }, [filterProducts]);
+
+  const loadProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error loading products:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteProduct = async (id: string) => {

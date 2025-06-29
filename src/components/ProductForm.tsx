@@ -79,8 +79,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onClose, onSave }) =
       }
 
       onSave();
-    } catch (error: any) {
-      setError(error.message || 'Error al guardar el producto');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Error al guardar el producto');
+      }
     } finally {
       setLoading(false);
     }

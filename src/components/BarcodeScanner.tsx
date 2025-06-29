@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { X, Camera } from 'lucide-react';
 
@@ -9,7 +9,7 @@ interface BarcodeScannerProps {
 
 const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-  const [error, setError] = useState<string>('');
+  // Removed unused error state
 
   useEffect(() => {
     const config = {
@@ -65,11 +65,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
               
               <div id="qr-reader" className="w-full"></div>
               
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                  <p className="text-sm text-red-600">{error}</p>
-                </div>
-              )}
+              {/* Removed error display as error state is unused */}
             </div>
           </div>
           
