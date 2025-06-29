@@ -1,57 +1,106 @@
-# Configuración de Variables de Entorno para Netlify
+# ⚡ Solución al Error "supabaseUrl is required" en Netlify
 
-## Variables Requeridas
+## 🚨 Problema
+El error `Uncaught Error: supabaseUrl is required` indica que Netlify no puede leer las variables de entorno necesarias para conectar con Supabase.
 
-Para que tu aplicación funcione correctamente en Netlify, necesitas configurar las siguientes variables de entorno en el panel de administración de Netlify:
+## ✅ Solución Paso a Paso
 
-### Variables de Supabase (REQUERIDAS)
+### 1. Configurar Variables de Entorno en Netlify
+
+1. **Ve a tu panel de Netlify**: https://app.netlify.com
+2. **Selecciona tu sitio**
+3. **Ve a Site settings** (configuración del sitio)
+4. **Busca "Environment variables"** en el menú lateral
+5. **Haz clic en "Add variable"** para cada una de estas:
+
+#### Variables Requeridas:
+
 ```
-VITE_SUPABASE_URL=https://iujpqyedxhbpqdifbmjy.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1anBxeWVkeGhicHFkaWZibWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExNjcwMDAsImV4cCI6MjA2Njc0MzAwMH0.9L_tKUic_CaY61Q7L_6HM1VdGDcOod2HvCdzmZ4b2N8
+Nombre: VITE_SUPABASE_URL
+Valor: https://iujpqyedxhbpqdifbmjy.supabase.co
 ```
 
-### Variables de Pago (OPCIONALES)
 ```
-VITE_MERCADOPAGO_PUBLIC_KEY=tu_clave_publica_de_mercadopago
-VITE_PAYPAL_CLIENT_ID=tu_client_id_de_paypal
+Nombre: VITE_SUPABASE_ANON_KEY  
+Valor: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1anBxeWVkeGhicHFkaWZibWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExNjcwMDAsImV4cCI6MjA2Njc0MzAwMH0.9L_tKUic_CaY61Q7L_6HM1VdGDcOod2HvCdzmZ4b2N8
 ```
 
-## Cómo configurar en Netlify
+### 2. Verificar Configuración de Build
 
-1. Ve al panel de administración de Netlify
-2. Selecciona tu sitio
-3. Ve a **Site settings** > **Environment variables**
-4. Agrega cada variable con su valor correspondiente
-5. Asegúrate de que el nombre sea exacto (incluyendo el prefijo `VITE_`)
-6. Haz un nuevo deploy después de configurar las variables
+En **Site settings → Build & deploy → Build settings**:
 
-## Verificación Local
+- **Build command**: `npm run build`
+- **Publish directory**: `dist`
+- **Node version**: 18 o superior
 
-Para verificar que las variables están configuradas correctamente en desarrollo, ejecuta:
+### 3. Hacer un Nuevo Deploy
+
+⚠️ **IMPORTANTE**: Después de agregar las variables de entorno:
+
+1. **Ve a Deploys**
+2. **Haz clic en "Trigger deploy"**
+3. **Selecciona "Deploy site"**
+
+### 4. Verificación
+
+Si configuraste todo correctamente, tu sitio debería:
+
+- ✅ Cargar sin errores
+- ✅ Mostrar el dashboard correctamente
+- ✅ Permitir login/registro
+
+Si aún hay errores:
+
+- 🔍 **Abre las herramientas de desarrollador** (F12)
+- 📋 **Revisa la consola** para ver mensajes de debug
+- 🔄 **Verifica que los nombres de variables sean EXACTOS**
+
+## 🛠️ Diagnóstico de Problemas
+
+### Error Común 1: Variables con espacios
+❌ `VITE_SUPABASE_URL = https://...` (con espacios)
+✅ `VITE_SUPABASE_URL=https://...` (sin espacios)
+
+### Error Común 2: Nombres incorrectos
+❌ `SUPABASE_URL` (sin prefijo VITE_)
+✅ `VITE_SUPABASE_URL` (con prefijo VITE_)
+
+### Error Común 3: No hacer nuevo deploy
+Netlify solo aplica las variables de entorno en **nuevos deploys**, no en deploys existentes.
+
+## 🔧 Build Commands
+
+Para verificar localmente antes de subir a Netlify:
 
 ```bash
-npm run dev
-```
+# Verificar variables de entorno
+npm run check-env
 
-Si ves errores relacionados con variables de entorno, verifica que el archivo `.env` existe y contiene los valores correctos.
+# Diagnosticar problemas
+node scripts/diagnose-env.cjs
 
-## Solución de Problemas
-
-Si sigues viendo el error "supabaseUrl is required" después de configurar las variables:
-
-1. Verifica que los nombres de las variables sean exactos
-2. Asegúrate de que no hay espacios extra en los valores
-3. Haz un "Clear cache and deploy" en Netlify
-4. Verifica que las variables estén en la sección correcta de Netlify
-
-## Build Command para Netlify
-
-El comando de build debe ser:
-```
+# Build para producción
 npm run build
+
+# Preview del build
+npm run preview
 ```
 
-Y el directorio de publicación debe ser:
-```
-dist
-```
+## 📞 Si Necesitas Ayuda
+
+Si el error persiste después de seguir estos pasos:
+
+1. **Revisa la consola del navegador** en el sitio desplegado
+2. **Verifica que las variables estén en Netlify** (no solo en tu archivo .env local)
+3. **Asegúrate de haber hecho un nuevo deploy** después de agregar las variables
+4. **Verifica que no hay caracteres especiales** en las variables de entorno
+
+## ✨ Verificación Final
+
+Tu aplicación debería:
+- ✅ Cargar completamente
+- ✅ Mostrar el formulario de login
+- ✅ Conectar correctamente con Supabase
+- ✅ No mostrar errores en la consola
+
+¡Una vez configurado correctamente, tu Sistema de Gestión Comercial estará completamente funcional en Netlify!

@@ -39,7 +39,14 @@ if (hasError) {
   console.error('2. Asegúrate de que contiene todas las variables requeridas');
   console.error('3. Si estás desplegando en Netlify, configura las variables en el panel de administración');
   console.error('\n📖 Consulta NETLIFY_SETUP.md para más información.');
-  process.exit(1);
+  
+  // En CI/CD (como Netlify), no fallar el build, solo advertir
+  if (process.env.CI || process.env.NETLIFY) {
+    console.warn('\n⚠️  Build continuará, pero la aplicación mostrará errores en runtime.');
+    console.warn('🔧 Configura las variables de entorno en Netlify para solucionarlo.');
+  } else {
+    process.exit(1);
+  }
 } else {
   console.log('\n✅ Todas las variables de entorno requeridas están configuradas correctamente.');
   console.log('🚀 Procediendo con el build...\n');
