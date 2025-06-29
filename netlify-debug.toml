@@ -1,0 +1,12 @@
+# Configuración de debug para identificar problemas de build
+[build]
+  publish = "dist"
+  command = "bash netlify-debug.sh"
+
+[build.environment]
+  NODE_VERSION = "18.20.4"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
