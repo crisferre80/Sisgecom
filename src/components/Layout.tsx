@@ -12,11 +12,15 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import DemoWarning from './DemoWarning';
 
 const Layout: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  
+  // Detectar modo demo
+  const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   const handleSignOut = async () => {
     await signOut();
@@ -34,6 +38,9 @@ const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Demo Warning */}
+      <DemoWarning show={isDemoMode} />
+      
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
@@ -146,7 +153,7 @@ const Layout: React.FC = () => {
             </div>
           </div>
         </div>
-        <main className="flex-1">
+        <main className={`flex-1 ${isDemoMode ? 'pt-20' : ''}`}>
           <Outlet />
         </main>
       </div>

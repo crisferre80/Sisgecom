@@ -13,6 +13,9 @@ const Login: React.FC = () => {
   const [name, setName] = useState('');
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  
+  // Detectar modo demo
+  const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +76,25 @@ const Login: React.FC = () => {
         }
       } else {
         setError('Error al crear usuario demo');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const { error } = await signIn('admin@demo.com', 'admin123');
+      if (error) throw error;
+      navigate('/');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message || 'Error en la operación');
+      } else {
+        setError('Error en la operación');
       }
     } finally {
       setLoading(false);
@@ -186,6 +208,17 @@ const Login: React.FC = () => {
                 (isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión')
               }
             </button>
+
+            {/* Botón Demo Mode */}
+            {isDemoMode && (
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                className="w-full flex justify-center py-3 px-4 border border-amber-300 rounded-md shadow-sm text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+              >
+                🚀 Entrar en Modo Demo
+              </button>
+            )}
 
             <div className="text-center space-y-3">
               <button

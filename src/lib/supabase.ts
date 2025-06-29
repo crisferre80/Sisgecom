@@ -3,16 +3,22 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Validación de variables de entorno
-if (!supabaseUrl) {
-  throw new Error('VITE_SUPABASE_URL es requerida. Asegúrate de configurar esta variable de entorno.');
+// Modo demo cuando no hay variables configuradas
+const DEMO_MODE = !supabaseUrl || !supabaseKey;
+
+if (DEMO_MODE) {
+  console.warn('🚨 MODO DEMO: Variables de entorno no configuradas');
+  console.warn('Para configurar Supabase:');
+  console.warn('1. Ve a Netlify Dashboard → Site settings → Environment variables');
+  console.warn('2. Agrega VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY');
+  console.warn('3. Redeploy el sitio');
 }
 
-if (!supabaseKey) {
-  throw new Error('VITE_SUPABASE_ANON_KEY es requerida. Asegúrate de configurar esta variable de entorno.');
-}
+// Crear cliente con valores por defecto para modo demo
+const finalUrl = supabaseUrl || 'https://demo.supabase.co';
+const finalKey = supabaseKey || 'demo-key';
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(finalUrl, finalKey);
 
 // Auth helpers
 export const signIn = async (email: string, password: string) => {
