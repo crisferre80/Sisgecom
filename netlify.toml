@@ -1,17 +1,19 @@
 [build]
   publish = "dist"
-  # Usar build sin verificación para evitar fallas en CI
-  command = "npm run build-only"
-  # Forzar el uso de Node.js en lugar de PHP
+  # Build directo con Vite, sin scripts npm adicionales
+  command = "npx vite build"
+  # Comando alternativo si hay problemas: bash build.sh
+  # Forzar directorio base para detección correcta
   base = "."
 
 [build.environment]
-  # Especificar versión de Node.js exacta
+  # Forzar detección como proyecto Node.js
   NODE_VERSION = "18.20.8"
   NPM_VERSION = "10"
-  # Forzar detección como proyecto Node.js
+  # Variables para forzar Node.js
   NODE_ENV = "production"
-  # Deshabilitar detección automática de lenguaje
+  # Deshabilitar autodetección PHP
+  PHP_VERSION = ""
   NETLIFY_USE_YARN = "false"
   NETLIFY_USE_PNPM = "false"
 
@@ -28,3 +30,9 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Configuración alternativa para casos problemáticos
+# [build]
+#   publish = "dist"
+#   command = "bash build.sh"
+#   base = "."
