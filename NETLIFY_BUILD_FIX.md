@@ -56,7 +56,7 @@ Asegúrate de que estos archivos estén en tu repo:
 4. **Environment variables** → Add variable:
    ```
    VITE_SUPABASE_URL=https://iujpqyedxhbpqdifbmjy.supabase.co
-   VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1anBxeWVkeGhicHFkaWZibWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExNjcwMDAsImV4cCI6MjA2Njc0MzAwMH0.9L_tKUic_CaY61Q7L_6HM1VdGDcOod2HvCdzmZ4b2N8
+   VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1anBxeWVkeGhicHFkaWZibWp5Iiwicm9zZSI6ImFub24iLCJpYXQiOjE3NTExNjcwMDAsImV4cCI6MjA2Njc0MzAwMH0.9L_tKUic_CaY61Q7L_6HM1VdGDcOod2HvCdzmZ4b2N8
    NODE_VERSION=18.20.8
    ```
 
@@ -119,3 +119,26 @@ npx vite build
 ---
 
 **IMPORTANTE**: El comando `npx vite build` es el más directo y debería funcionar. Si no funciona, el problema puede estar en las dependencias o en la configuración de Netlify específica de tu cuenta.
+
+## 🔧 Corrección Adicional - Versión de Node.js
+
+### ❌ Problema Identificado en Netlify
+```
+Attempting Node.js version '18.20.8' from .nvmrc
+```
+Error: La versión `18.20.8` no existe en los repositorios oficiales de Node.js.
+
+### ✅ Solución Aplicada
+- **Archivo corregido**: `.nvmrc`
+- **Versión anterior**: `18.20.8` (inexistente)
+- **Versión corregida**: `18.20.4` (LTS estable)
+
+### 📝 Versiones Válidas de Node.js 18 Recomendadas
+- `18.20.4` - **RECOMENDADA** (LTS actual)
+- `18.19.1` - LTS anterior
+- `18.18.0` - LTS estable
+
+### 🚀 Deploy Corregido
+Con esta corrección, el deploy en Netlify debería funcionar correctamente.
+
+---

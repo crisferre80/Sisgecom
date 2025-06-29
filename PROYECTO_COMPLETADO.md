@@ -37,6 +37,10 @@
   - Actualización de tipos de React (`@types/react`, `@types/react-dom`)
   - Corrección de todos los errores en componentes principales
 
+### 5. **Versión de Node.js para Netlify**
+- ❌ **Problema**: Versión `18.20.8` inexistente en `.nvmrc`
+- ✅ **Solución**: Corregido a `18.20.4` (LTS válida y estable)
+
 ## 📁 Archivos Clave Modificados
 
 ### Configuración del Proyecto
