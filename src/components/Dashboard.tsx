@@ -5,8 +5,6 @@ import {
   DollarSign, 
   AlertTriangle,
   TrendingUp,
-  Users,
-  Calendar,
   Download
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -44,19 +42,55 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadDashboardData = async () => {
+    try {
+      // Usar la función RPC que ya existe en la base de datos
+      const { data: dashboardStats, error } = await supabase
+        .rpc('get_dashboard_stats');
+
+      if (error) {
+        console.error('Error calling get_dashboard_stats:', error);
+        // Fallback to manual calculation
+        await loadDashboardDataManual();
+        return;
+      }
+
+      if (dashboardStats) {
+        setStats({
+          total_products: dashboardStats.total_products || 0,
+          low_stock_products: dashboardStats.low_stock_products || 0,
+          total_sales_today: dashboardStats.total_sales_today || 0,
+          total_revenue_today: dashboardStats.total_revenue_today || 0,
+          pending_transactions: dashboardStats.pending_transactions || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      // Fallback to manual calculation
+      await loadDashboardDataManual();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDashboardDataManual = async () => {
     try {
       // Load products stats
       const { count: totalProducts } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true });
 
-      const { count: lowStockProducts } = await supabase
+      // Obtener todos los productos y filtrar en el cliente para stock bajo
+      const { data: allProducts } = await supabase
         .from('products')
-        .select('*', { count: 'exact', head: true })
-        .lt('quantity', 'min_stock');
+        .select('quantity, min_stock');
+      
+      const lowStockProducts = allProducts?.filter(product => 
+        product.quantity <= product.min_stock
+      ).length || 0;
 
       // Load today's sales
       const today = new Date().toISOString().split('T')[0];
@@ -76,15 +110,13 @@ const Dashboard: React.FC = () => {
 
       setStats({
         total_products: totalProducts || 0,
-        low_stock_products: lowStockProducts || 0,
+        low_stock_products: lowStockProducts,
         total_sales_today: totalSalesToday,
         total_revenue_today: totalRevenueToday,
         pending_transactions: pendingTransactions || 0
       });
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error in manual dashboard data loading:', error);
     }
   };
 
