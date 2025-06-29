@@ -11,24 +11,72 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+
+  const getCameraInfo = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      return videoDevices.map((device, index) => 
+        `Cámara ${index + 1}: ${device.label || 'Cámara sin nombre'}`
+      ).join('\n');
+    } catch {
+      return 'No se pudo obtener información de las cámaras';
+    }
+  };
+
+  const reinitializeScanner = async () => {
+    if (scannerRef.current) {
+      await scannerRef.current.clear().catch(console.error);
+      scannerRef.current = null;
+    }
+    
+    setError(null);
+    setIsInitializing(true);
+    
+    // Trigger re-initialization
+    const initEvent = new Event('reinitialize');
+    document.dispatchEvent(initEvent);
+  };
 
   useEffect(() => {
     const initializeScanner = async () => {
       try {
         setIsInitializing(true);
         setError(null);
+        setDebugInfo(null);
 
         // Verificar si el navegador soporta getUserMedia
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error('Su navegador no soporta el acceso a la cámara');
         }
 
-        // Solicitar permisos de cámara explícitamente
+        // Solicitar permisos de cámara explícitamente y verificar que funciona
+        let stream: MediaStream;
         try {
-          await navigator.mediaDevices.getUserMedia({ video: true });
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode: 'environment', // Preferir cámara trasera
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            } 
+          });
+          
+          // Verificar que el stream tiene tracks de video activos
+          const videoTracks = stream.getVideoTracks();
+          if (videoTracks.length === 0) {
+            throw new Error('No se pudo acceder a la cámara del dispositivo');
+          }
+          
+          // Cerrar el stream temporal ya que html5-qrcode manejará la cámara
+          stream.getTracks().forEach(track => track.stop());
+          
         } catch {
           throw new Error('Se requiere permiso para acceder a la cámara. Por favor, permita el acceso y recargue la página.');
         }
+
+        // Esperar un poco antes de inicializar el escáner
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const config = {
           fps: 10,
@@ -37,6 +85,10 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
           showTorchButtonIfSupported: true,
           showZoomSliderIfSupported: true,
           defaultZoomValueIfSupported: 2,
+          useBarCodeDetectorIfSupported: true,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
         };
 
         const scanner = new Html5QrcodeScanner('qr-reader', config, false);
@@ -49,9 +101,10 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
           },
           (error) => {
             // Solo mostrar errores relevantes, no todos los errores de lectura
-            if (error.includes('NotAllowedError') || error.includes('NotFoundError')) {
+            if (error.includes('NotAllowedError') || error.includes('NotFoundError') || error.includes('NotReadableError')) {
               setError('Error de cámara: ' + error);
             }
+            console.warn('QR scan error:', error);
           }
         );
 
@@ -62,9 +115,18 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
       }
     };
 
+    const handleReinitialize = () => {
+      initializeScanner();
+    };
+
+    // Inicializar por primera vez
     initializeScanner();
 
+    // Escuchar eventos de reinicialización
+    document.addEventListener('reinitialize', handleReinitialize);
+
     return () => {
+      document.removeEventListener('reinitialize', handleReinitialize);
       if (scannerRef.current) {
         scannerRef.current.clear().catch(console.error);
       }
@@ -102,11 +164,35 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
                     <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
                     <p className="text-sm text-red-700">{error}</p>
                   </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={reinitializeScanner}
+                      className="flex-1 inline-flex justify-center rounded-md border border-blue-300 shadow-sm px-4 py-2 bg-blue-50 text-base font-medium text-blue-700 hover:bg-blue-100 sm:text-sm"
+                    >
+                      Reintentar
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const info = await getCameraInfo();
+                        setDebugInfo(info);
+                      }}
+                      className="flex-1 inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-gray-50 text-base font-medium text-gray-700 hover:bg-gray-100 sm:text-sm"
+                    >
+                      Info Cámaras
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {debugInfo && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-700 font-medium mb-1">Cámaras disponibles:</p>
+                  <pre className="text-xs text-blue-600 whitespace-pre-wrap">{debugInfo}</pre>
                   <button
-                    onClick={() => window.location.reload()}
-                    className="w-full inline-flex justify-center rounded-md border border-blue-300 shadow-sm px-4 py-2 bg-blue-50 text-base font-medium text-blue-700 hover:bg-blue-100 sm:text-sm"
+                    onClick={() => setDebugInfo(null)}
+                    className="mt-2 text-xs text-blue-500 hover:text-blue-700"
                   >
-                    Reintentar
+                    Cerrar
                   </button>
                 </div>
               )}

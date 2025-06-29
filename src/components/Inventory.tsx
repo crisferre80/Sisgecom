@@ -12,6 +12,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { Product } from '../types';
 import BarcodeScanner from './BarcodeScanner';
+import NativeCameraScanner from './NativeCameraScanner';
 import ProductForm from './ProductForm';
 
 const Inventory: React.FC = () => {
@@ -21,6 +22,7 @@ const Inventory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [useNativeScanner, setUseNativeScanner] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [filterCategory, setFilterCategory] = useState('');
   const [showLowStock, setShowLowStock] = useState(false);
@@ -141,13 +143,28 @@ const Inventory: React.FC = () => {
           <p className="text-gray-600 mt-1">Gestión de productos y stock</p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
-          <button
-            onClick={() => setShowScanner(true)}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <ScanLine className="w-4 h-4 mr-2" />
-            Escanear
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => {
+                setUseNativeScanner(false);
+                setShowScanner(true);
+              }}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-l-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              <ScanLine className="w-4 h-4 mr-2" />
+              Escanear
+            </button>
+            <button
+              onClick={() => {
+                setUseNativeScanner(true);
+                setShowScanner(true);
+              }}
+              title="Usar cámara nativa (alternativa)"
+              className="inline-flex items-center px-2 py-2 border border-l-0 border-gray-300 rounded-r-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              📷
+            </button>
+          </div>
           <button
             onClick={exportToExcel}
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
@@ -296,8 +313,15 @@ const Inventory: React.FC = () => {
         />
       )}
 
-      {showScanner && (
+      {showScanner && !useNativeScanner && (
         <BarcodeScanner
+          onScan={handleBarcodeScanned}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
+      {showScanner && useNativeScanner && (
+        <NativeCameraScanner
           onScan={handleBarcodeScanned}
           onClose={() => setShowScanner(false)}
         />
