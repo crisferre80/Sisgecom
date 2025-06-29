@@ -1,8 +1,7 @@
 [build]
   publish = "dist"
-  # Build directo con Vite, sin scripts npm adicionales
-  command = "npx vite build"
-  # Comando alternativo si hay problemas: bash build.sh
+  # Comando simplificado usando npm scripts
+  command = "npm run build-only"
   # Forzar directorio base para detección correcta
   base = "."
 
