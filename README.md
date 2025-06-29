@@ -21,8 +21,8 @@ Un sistema moderno de gestión comercial desarrollado con React, TypeScript y Su
 
 1. Clona el repositorio:
 ```bash
-git clone https://github.com/tu-usuario/sistema-gestion-comercial.git
-cd sistema-gestion-comercial
+git clone https://github.com/crisferre80/Sisgecom.git
+cd Sisgecom
 ```
 
 2. Instala las dependencias:
@@ -78,4 +78,4 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 Tu Nombre - [tu-email@ejemplo.com](mailto:tu-email@ejemplo.com)
 
-Link del Proyecto: [https://github.com/tu-usuario/sistema-gestion-comercial](https://github.com/tu-usuario/sistema-gestion-comercial)
+Link del Proyecto: [https://github.com/crisferre80/Sisgecom](https://github.com/crisferre80/Sisgecom)
