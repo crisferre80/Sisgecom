@@ -47,7 +47,7 @@ const Layout: React.FC = () => {
         <nav className="fixed top-0 left-0 bottom-0 flex flex-col w-5/6 max-w-sm bg-white shadow-xl">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h1 className="text-xl font-bold text-gray-900">InventoryPro</h1>
+              <h1 className="text-xl font-bold text-gray-900">SysGeCom</h1>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="p-2 rounded-md text-gray-400 hover:text-gray-500"
@@ -145,7 +145,7 @@ const Layout: React.FC = () => {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">InventoryPro</h1>
+            <h1 className="text-lg font-bold text-gray-900">SysGeCo</h1>
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
               <span className="text-white text-sm font-medium">
                 {user?.user_metadata?.name?.[0]?.toUpperCase() || 'U'}
