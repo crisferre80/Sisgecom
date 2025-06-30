@@ -8,6 +8,7 @@ import Sales from './components/Sales';
 import Customers from './components/Customers';
 import Payments from './components/Payments';
 import UserManagement from './components/UserManagement';
+import Configuration from './components/Configuration';
 import Login from './components/Login';
 
 function App() {
@@ -30,7 +31,7 @@ function App() {
             <Route path="customers" element={<Customers />} />
             <Route path="payments" element={<Payments />} />
             <Route path="users" element={<UserManagement />} />
-            <Route path="settings" element={<div className="p-6"><h1 className="text-2xl font-bold">Configuración</h1><p className="text-gray-600">Próximamente...</p></div>} />
+            <Route path="settings" element={<Configuration />} />
           </Route>
         </Routes>
       </Router>
