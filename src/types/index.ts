@@ -143,3 +143,99 @@ export interface Transaction {
   date: string;
   verified: boolean;
 }
+
+// Configuration Types
+export interface CompanySettings {
+  id?: string;
+  company_name: string;
+  company_email: string;
+  company_phone: string;
+  company_address: string;
+  company_city: string;
+  company_postal_code: string;
+  company_country: string;
+  tax_id: string;
+  logo_url?: string;
+  website?: string;
+  default_currency: string;
+  default_tax_rate: number;
+  invoice_prefix: string;
+  invoice_counter: number;
+  receipt_prefix: string;
+  receipt_counter: number;
+  updated_at: string;
+  updated_by: string;
+}
+
+export interface SystemSettings {
+  id?: string;
+  setting_key: string;
+  setting_value: string;
+  setting_type: 'string' | 'number' | 'boolean' | 'json';
+  description?: string;
+  category: 'general' | 'inventory' | 'sales' | 'payments' | 'notifications' | 'security';
+  is_public: boolean;
+  updated_at: string;
+  updated_by: string;
+}
+
+export interface NotificationTemplate {
+  id?: string;
+  template_name: string;
+  template_type: 'email' | 'sms' | 'whatsapp' | 'system';
+  event_trigger: string;
+  subject?: string;
+  content: string;
+  variables: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  updated_by?: string;
+}
+
+export interface BackupConfiguration {
+  id?: string;
+  backup_name: string;
+  backup_type: 'full' | 'incremental' | 'differential';
+  schedule_type: 'manual' | 'daily' | 'weekly' | 'monthly';
+  schedule_time?: string;
+  schedule_day?: string;
+  retention_days: number;
+  storage_location: 'local' | 'cloud' | 'both';
+  is_active: boolean;
+  last_backup?: string;
+  next_backup?: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+}
+
+export interface AuditLog {
+  id?: string;
+  user_id?: string;
+  user_email: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  old_values?: Record<string, unknown>;
+  new_values?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+  timestamp: string;
+  details?: string;
+}
+
+export interface InventoryAlert {
+  id?: string;
+  product_id: string;
+  alert_type: 'low_stock' | 'out_of_stock' | 'expired' | 'expiring_soon';
+  alert_level: 'info' | 'warning' | 'critical';
+  message: string;
+  is_read: boolean;
+  is_resolved: boolean;
+  created_at: string;
+  resolved_at?: string;
+  resolved_by?: string;
+  product?: Product;
+}
