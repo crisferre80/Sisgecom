@@ -2,15 +2,13 @@ import React, { useState } from 'react';
 import {
   Building2,
   User,
-  Save,
-  Info,
-  RefreshCw,
-  AlertTriangle
+  Save
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useConfiguration } from '../hooks/useConfiguration';
 import UserProfile from './UserProfile';
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface ConfigurationProps {}
 
 const Configuration: React.FC<ConfigurationProps> = () => {
@@ -19,17 +17,11 @@ const Configuration: React.FC<ConfigurationProps> = () => {
     // Company Settings
     companySettings,
     saveCompanySettings,
-    // Inventory Alerts
-    inventoryAlerts,
-    resolveAlert,
-    generateAlerts,
     // Loading state
-    loading,
-    error: configError
+    loading
   } = useConfiguration();
 
   const [activeTab, setActiveTab] = useState('company');
-  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   
   // Local state for forms
   const [companyForm, setCompanyForm] = useState(companySettings || {
@@ -60,42 +52,17 @@ const Configuration: React.FC<ConfigurationProps> = () => {
     }
   }, [companySettings]);
 
-  const showMessage = (type: 'success' | 'error' | 'info', text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 5000);
-  };
-
   const handleSaveCompanySettings = async () => {
     try {
       await saveCompanySettings(companyForm);
-      showMessage('success', 'Configuración de empresa guardada exitosamente');
-    } catch (error) {
-      showMessage('error', 'Error al guardar la configuración de empresa');
-    }
-  };
-
-  const handleResolveAlert = async (alertId: string) => {
-    try {
-      await resolveAlert(alertId);
-      showMessage('success', 'Alerta resuelta');
-    } catch (error) {
-      showMessage('error', 'Error al resolver alerta');
-    }
-  };
-
-  const handleGenerateAlerts = async () => {
-    try {
-      await generateAlerts();
-      showMessage('success', 'Alertas generadas');
-    } catch (error) {
-      showMessage('error', 'Error al generar alertas');
+    } catch {
+      // Error handling removed
     }
   };
 
   const tabs = [
     { id: 'company', name: 'Empresa', icon: Building2 },
     { id: 'profile', name: 'Perfil de Usuario', icon: User },
-    { id: 'alerts', name: 'Alertas', icon: AlertTriangle },
   ];
 
   return (
@@ -106,18 +73,6 @@ const Configuration: React.FC<ConfigurationProps> = () => {
           <p className="text-gray-600">Gestiona la configuración general del sistema</p>
         </div>
       </div>
-
-      {/* Message Display */}
-      {(message || configError) && (
-        <div className={`mb-6 p-4 rounded-md flex items-center ${
-          message?.type === 'success' || !configError ? 'bg-green-50 text-green-800' :
-          message?.type === 'error' || configError ? 'bg-red-50 text-red-800' :
-          'bg-blue-50 text-blue-800'
-        }`}>
-          <Info className="w-5 h-5 mr-2" />
-          {message?.text || configError}
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
@@ -303,66 +258,6 @@ const Configuration: React.FC<ConfigurationProps> = () => {
 
       {/* User Profile Tab */}
       {activeTab === 'profile' && <UserProfile />}
-
-      {/* Inventory Alerts Tab */}
-      {activeTab === 'alerts' && (
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Alertas de Inventario</h2>
-            <button
-              onClick={handleGenerateAlerts}
-              disabled={loading}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Generar Alertas
-            </button>
-          </div>
-          
-          <div className="space-y-4">
-            {inventoryAlerts.map((alert) => (
-              <div key={alert.id} className={`border rounded-lg p-4 ${
-                alert.alert_level === 'critical' ? 'border-red-200 bg-red-50' :
-                alert.alert_level === 'warning' ? 'border-yellow-200 bg-yellow-50' :
-                'border-blue-200 bg-blue-50'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <AlertTriangle className={`w-5 h-5 ${
-                        alert.alert_level === 'critical' ? 'text-red-600' :
-                        alert.alert_level === 'warning' ? 'text-yellow-600' :
-                        'text-blue-600'
-                      }`} />
-                      <span className="font-medium">{alert.alert_type.replace('_', ' ').toUpperCase()}</span>
-                      <span className="text-sm text-gray-500">
-                        {alert.product?.name} ({alert.product?.barcode})
-                      </span>
-                    </div>
-                    <p className="text-gray-700 mt-1">{alert.message}</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {new Date(alert.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleResolveAlert(alert.id!)}
-                    className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-                  >
-                    Resolver
-                  </button>
-                </div>
-              </div>
-            ))}
-            
-            {inventoryAlerts.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No hay alertas pendientes</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

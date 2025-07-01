@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Minus, Search, X, ShoppingCart, User, Calculator } from 'lucide-react';
+import { Plus, Minus, Search, X, ShoppingCart, User, Calculator, Camera } from 'lucide-react';
 import { Product, Customer, Sale, SaleItem } from '../types';
 import { supabase } from '../lib/supabase';
+import BarcodeScanner from './BarcodeScanner';
 
 interface NewSaleFormProps {
   onClose: () => void;
@@ -25,6 +26,7 @@ const NewSaleForm: React.FC<NewSaleFormProps> = ({ onClose, onSaleCreated }) => 
   const [productSearch, setProductSearch] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showProductSearch, setShowProductSearch] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   
   // Estados para búsqueda de clientes
   const [customerSearch, setCustomerSearch] = useState('');
@@ -121,6 +123,32 @@ const NewSaleForm: React.FC<NewSaleFormProps> = ({ onClose, onSaleCreated }) => 
     
     setProductSearch('');
     setShowProductSearch(false);
+  };
+
+  // Manejar resultado del escáner de código de barras
+  const handleBarcodeScan = async (barcode: string) => {
+    try {
+      setShowBarcodeScanner(false);
+      
+      // Buscar producto por código de barras
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('barcode', barcode)
+        .eq('is_active', true)
+        .single();
+
+      if (error || !data) {
+        alert(`No se encontró un producto con el código de barras: ${barcode}`);
+        return;
+      }
+
+      // Agregar el producto encontrado
+      addProduct(data);
+    } catch (error) {
+      console.error('Error processing barcode scan:', error);
+      alert('Error al procesar el código de barras');
+    }
   };
 
   // Actualizar cantidad de item
@@ -294,6 +322,14 @@ const NewSaleForm: React.FC<NewSaleFormProps> = ({ onClose, onSaleCreated }) => 
                         onFocus={() => setShowProductSearch(true)}
                       />
                     </div>
+                    <button
+                      onClick={() => setShowBarcodeScanner(true)}
+                      className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                      title="Escanear código de barras"
+                    >
+                      <Camera className="h-5 w-5" />
+                      Escanear
+                    </button>
                   </div>
                   
                   {/* Search Results */}
@@ -583,6 +619,14 @@ const NewSaleForm: React.FC<NewSaleFormProps> = ({ onClose, onSaleCreated }) => 
           </div>
         </div>
       </div>
+
+      {/* Barcode Scanner Modal */}
+      {showBarcodeScanner && (
+        <BarcodeScanner
+          onScan={handleBarcodeScan}
+          onClose={() => setShowBarcodeScanner(false)}
+        />
+      )}
     </div>
   );
 };

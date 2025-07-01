@@ -1,19 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  User,
-  Camera,
   Save,
   Edit2,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  Shield,
-  Upload,
-  X,
   Eye,
   EyeOff,
-  Info
+  Lock,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
@@ -73,18 +65,42 @@ const UserProfile: React.FC = () => {
   // Detectar modo demo
   const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-  useEffect(() => {
-    if (user) {
-      loadUserProfile();
-    }
-  }, [user]);
-
   const showMessage = (type: 'success' | 'error' | 'info', text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 5000);
   };
 
-  const loadUserProfile = async () => {
+  // Función para obtener URL válida del avatar existente
+  const getValidAvatarUrl = useCallback(async (avatarUrl: string | null | undefined): Promise<string | null> => {
+    if (!avatarUrl || !user || isDemoMode) return null;
+    
+    // Si ya es una URL firmada válida, devolverla
+    if (avatarUrl.includes('token=')) {
+      return avatarUrl;
+    }
+    
+    try {
+      // Si es una URL pública, intentar obtener una URL firmada
+      const fileExt = avatarUrl.split('.').pop()?.split('?')[0]; // Remover query params si existen
+      const fileName = `${user.id}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+      
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from('user-avatars')
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 año
+        
+      if (signedData && !signedError) {
+        console.log('URL firmada regenerada:', signedData.signedUrl);
+        return signedData.signedUrl;
+      }
+    } catch (error) {
+      console.error('Error generando URL firmada:', error);
+    }
+    
+    return avatarUrl; // Devolver la original como fallback
+  }, [user, isDemoMode]);
+
+  const loadUserProfile = useCallback(async () => {
     if (isDemoMode || !user) {
       // Datos demo para el perfil
       const demoProfile: UserProfileData = {
@@ -117,7 +133,7 @@ const UserProfile: React.FC = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('*')
         .eq('id', user.id)
         .single();
@@ -125,7 +141,18 @@ const UserProfile: React.FC = () => {
       if (error) throw error;
 
       if (data) {
-        setProfileData(data);
+        // Obtener URL válida para el avatar si existe
+        let validAvatarUrl = data.avatar_url;
+        if (data.avatar_url) {
+          validAvatarUrl = await getValidAvatarUrl(data.avatar_url);
+        }
+        
+        const profileWithValidAvatar = {
+          ...data,
+          avatar_url: validAvatarUrl
+        };
+        
+        setProfileData(profileWithValidAvatar);
         setProfileForm({
           full_name: data.full_name || '',
           first_name: data.first_name || '',
@@ -142,7 +169,13 @@ const UserProfile: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isDemoMode, user, getValidAvatarUrl]);
+
+  useEffect(() => {
+    if (user) {
+      loadUserProfile();
+    }
+  }, [user, loadUserProfile]);
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -166,30 +199,53 @@ const UserProfile: React.FC = () => {
     }
   };
 
-  const uploadAvatar = async (): Promise<string | null> => {
+  const uploadAvatar = useCallback(async (): Promise<string | null> => {
     if (!avatarFile || !user || isDemoMode) return null;
 
     try {
       const fileExt = avatarFile.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}.${fileExt}`; // Usar user.id que corresponde al id de la tabla
       const filePath = `avatars/${fileName}`;
+      const bucketName = 'user-avatars';
 
+      console.log('Subiendo avatar para usuario:', user.id);
+      console.log('Ruta del archivo:', filePath);
+
+      // Subir el archivo (upsert: true sobrescribirá si existe)
       const { error: uploadError } = await supabase.storage
-        .from('user-avatars')
-        .upload(filePath, avatarFile);
+        .from(bucketName)
+        .upload(filePath, avatarFile, {
+          cacheControl: '3600',
+          upsert: true // Sobrescribir si existe
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Error de subida:', uploadError);
+        return null;
+      }
 
+      // Intentar obtener URL firmada primero (más confiable)
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from(bucketName)
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 año de duración
+
+      if (signedData && !signedError) {
+        console.log('URL firmada generada:', signedData.signedUrl);
+        return signedData.signedUrl;
+      }
+
+      // Si falla la URL firmada, usar URL pública como fallback
       const { data } = supabase.storage
-        .from('user-avatars')
+        .from(bucketName)
         .getPublicUrl(filePath);
 
+      console.log('URL pública generada (fallback):', data.publicUrl);
       return data.publicUrl;
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      throw new Error('Error al subir la imagen');
+      return null;
     }
-  };
+  }, [avatarFile, user, isDemoMode]);
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -200,7 +256,14 @@ const UserProfile: React.FC = () => {
 
       // Subir nueva imagen si existe
       if (avatarFile) {
-        avatarUrl = await uploadAvatar();
+        const uploadedAvatarUrl = await uploadAvatar();
+        if (uploadedAvatarUrl) {
+          avatarUrl = uploadedAvatarUrl;
+          console.log('Avatar subido exitosamente:', avatarUrl);
+        } else {
+          showMessage('error', 'Error al subir la imagen de perfil');
+          return;
+        }
       }
 
       if (isDemoMode) {
@@ -218,18 +281,30 @@ const UserProfile: React.FC = () => {
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
-        .from('users')
-        .update(updateData)
-        .eq('id', user.id);
+      console.log('Actualizando perfil con datos:', updateData);
 
-      if (error) throw error;
+      const { error } = await supabase
+        .from('user_profiles')
+        .update(updateData)
+        .eq('id', user.id); // Usar 'id' en lugar de 'user_id'
+
+      if (error) {
+        console.error('Error al actualizar perfil:', error);
+        throw error;
+      }
 
       showMessage('success', 'Perfil actualizado correctamente');
       setEditMode(false);
       setAvatarFile(null);
       setAvatarPreview(null);
-      await loadUserProfile();
+      
+      // Actualizar el estado local inmediatamente para evitar parpadeos
+      setProfileData(prev => prev ? {
+        ...prev,
+        ...profileForm,
+        avatar_url: avatarUrl
+      } : null);
+
     } catch (error) {
       console.error('Error saving profile:', error);
       showMessage('error', 'Error al guardar el perfil');
@@ -239,34 +314,31 @@ const UserProfile: React.FC = () => {
   };
 
   const handleChangePassword = async () => {
-    if (isDemoMode) {
-      showMessage('success', 'Contraseña cambiada (modo demo)');
-      setShowPasswordForm(false);
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      return;
-    }
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showMessage('error', 'Las contraseñas no coinciden');
-      return;
-    }
-
-    if (passwordForm.newPassword.length < 6) {
-      showMessage('error', 'La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
+    if (!user) return;
 
     try {
       setSaving(true);
+
+      // Validar formulario
+      if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+        showMessage('error', 'Todos los campos son obligatorios');
+        return;
+      }
+
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        showMessage('error', 'Las contraseñas nuevas no coinciden');
+        return;
+      }
+
+      // Cambiar contraseña en Supabase
       const { error } = await supabase.auth.updateUser({
         password: passwordForm.newPassword
       });
 
       if (error) throw error;
 
-      showMessage('success', 'Contraseña actualizada correctamente');
+      showMessage('success', 'Contraseña cambiada correctamente');
       setShowPasswordForm(false);
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
       console.error('Error changing password:', error);
       showMessage('error', 'Error al cambiar la contraseña');
@@ -275,372 +347,320 @@ const UserProfile: React.FC = () => {
     }
   };
 
-  const getRoleDisplayName = (role: string) => {
-    const roles = {
-      admin: 'Administrador',
-      manager: 'Gerente',
-      cashier: 'Cajero',
-      viewer: 'Visualizador'
-    };
-    return roles[role as keyof typeof roles] || role;
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    const colors = {
-      admin: 'bg-red-100 text-red-800',
-      manager: 'bg-blue-100 text-blue-800',
-      cashier: 'bg-green-100 text-green-800',
-      viewer: 'bg-gray-100 text-gray-800'
-    };
-    return colors[role as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-  };
-
-  if (loading) {
-    return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
+  // Resto del componente...
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Perfil de Usuario</h1>
-          <p className="text-gray-600">Gestiona tu información personal y configuración de cuenta</p>
-        </div>
-        <button
-          onClick={() => setEditMode(!editMode)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          <Edit2 className="w-4 h-4 mr-2" />
-          {editMode ? 'Cancelar' : 'Editar Perfil'}
-        </button>
-      </div>
-
-      {/* Message Display */}
-      {message && (
-        <div className={`mb-6 p-4 rounded-md flex items-center ${
-          message.type === 'success' ? 'bg-green-50 text-green-800' :
-          message.type === 'error' ? 'bg-red-50 text-red-800' :
-          'bg-blue-50 text-blue-800'
-        }`}>
-          <Info className="w-5 h-5 mr-2" />
-          {message.text}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Avatar y información básica */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <div className="text-center">
-              <div className="relative inline-block">
-                <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4 overflow-hidden">
-                  {avatarPreview || profileData?.avatar_url ? (
-                    <img
-                      src={avatarPreview || profileData?.avatar_url}
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-16 h-16 text-gray-400" />
-                  )}
-                </div>
-                {editMode && (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-2 -right-2 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </button>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="hidden"
-                />
-              </div>
-
-              <h2 className="text-xl font-semibold text-gray-900">
-                {profileData?.full_name || 'Usuario'}
-              </h2>
-              <p className="text-gray-600 mb-2">{profileData?.email}</p>
-              
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                getRoleBadgeColor(profileData?.role || 'viewer')
-              }`}>
-                <Shield className="w-3 h-3 mr-1" />
-                {getRoleDisplayName(profileData?.role || 'viewer')}
-              </span>
-
-              <div className="mt-4 space-y-2 text-sm text-gray-600">
-                <div className="flex items-center justify-center">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Registro: {profileData?.created_at ? new Date(profileData.created_at).toLocaleDateString() : '-'}
-                </div>
-                {profileData?.last_login && (
-                  <div className="flex items-center justify-center">
-                    <User className="w-4 h-4 mr-2" />
-                    Último acceso: {new Date(profileData.last_login).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
-            </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-0">
+            Perfil de Usuario
+          </h1>
+          <div className="flex-shrink-0">
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              {editMode ? 'Cancelar' : 'Editar Perfil'}
+              <Edit2 className="w-4 h-4 ml-2" />
+            </button>
           </div>
         </div>
 
-        {/* Información del perfil */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h3 className="text-lg font-medium mb-4">Información Personal</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre Completo
-                </label>
+        {message && (
+          <div className={`p-4 mb-4 text-sm rounded-lg ${message.type === 'error' ? 'bg-red-50 text-red-800' : message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-blue-50 text-blue-800'}`} role="alert">
+            <span className="font-medium">{message.type === 'error' ? 'Error:' : 'Éxito:'}</span> {message.text}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <svg aria-hidden="true" className="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none">
+              <path d="M100 50.5C100 78.2091 78.2091 100 50.5 100C22.791 100 1 78.2091 1 50.5C1 22.791 22.791 1 50.5 1C78.2091 1 100 22.791 100 50.5Z" fill="currentColor"/>
+              <path d="M93.9706 50.5C93.9706 75.8528 75.8528 93.9706 50.5 93.9706C25.1472 93.9706 7.02944 75.8528 7.02944 50.5C7.02944 25.1472 25.1472 7.02944 50.5 7.02944C75.8528 7.02944 93.9706 25.1472 93.9706 50.5Z" stroke="currentColor" strokeWidth="2"/>
+              <path d="M31.25 50.5C31.25 39.4024 39.4024 31.25 50.5 31.25C61.5976 31.25 69.75 39.4024 69.75 50.5C69.75 61.5976 61.5976 69.75 50.5 69.75C39.4024 69.75 31.25 61.5976 31.25 50.5Z" fill="currentColor"/>
+            </svg>
+          </div>
+        ) : (
+          <div className="bg-white shadow rounded-lg p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div className="flex items-center">
                 <div className="relative">
-                  <User className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={profileForm.full_name}
-                    onChange={(e) => setProfileForm(prev => ({ ...prev, full_name: e.target.value }))}
-                    disabled={!editMode}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                  <img
+                    src={avatarPreview || profileData?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profileForm.full_name || 'Usuario')}&background=3b82f6&color=fff&size=96`}
+                    alt="Avatar"
+                    className="w-16 h-16 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-white shadow-md"
+                    onLoad={(e) => {
+                      console.log('Imagen de avatar cargada exitosamente:', (e.target as HTMLImageElement).src);
+                    }}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      const originalSrc = target.src;
+                      console.error('Error cargando imagen de avatar:', originalSrc);
+                      
+                      // Solo cambiar si no es ya el fallback
+                      if (!originalSrc.includes('ui-avatars.com')) {
+                        target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profileForm.full_name || 'Usuario')}&background=3b82f6&color=fff&size=96`;
+                      }
+                    }}
                   />
+                  <span className="absolute inset-0 rounded-full shadow-inner" aria-hidden="true"></span>
+                </div>
+                <div className="ml-4">
+                  <h2 className="text-xl font-semibold text-gray-800">{profileForm.full_name || 'Nombre de Usuario'}</h2>
+                  <p className="text-sm text-gray-500">{profileData?.email}</p>
                 </div>
               </div>
+              {editMode && (
+                <div className="mt-4 sm:mt-0 sm:ml-4">
+                  <label htmlFor="avatar" className="block text-sm font-medium text-gray-700 mb-1">
+                    Cambiar Avatar
+                  </label>
+                  <input
+                    id="avatar"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    ref={fileInputRef}
+                  />
+                </div>
+              )}
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
                   Nombre
                 </label>
                 <input
+                  id="first_name"
                   type="text"
                   value={profileForm.first_name}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, first_name: e.target.value }))}
+                  onChange={(e) => setProfileForm({ ...profileForm, first_name: e.target.value })}
                   disabled={!editMode}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                  className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
                   Apellido
                 </label>
                 <input
+                  id="last_name"
                   type="text"
                   value={profileForm.last_name}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, last_name: e.target.value }))}
+                  onChange={(e) => setProfileForm({ ...profileForm, last_name: e.target.value })}
                   disabled={!editMode}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                  className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Correo Electrónico
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="email"
-                    value={profileData?.email || ''}
-                    disabled
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                  />
-                </div>
+                <input
+                  id="email"
+                  type="email"
+                  value={profileData?.email}
+                  disabled
+                  className="block w-full text-sm text-gray-900 bg-gray-100 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                   Teléfono
                 </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
-                    disabled={!editMode}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-                  />
-                </div>
+                <input
+                  id="phone"
+                  type="text"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                  disabled={!editMode}
+                  className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ciudad
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={profileForm.city}
-                    onChange={(e) => setProfileForm(prev => ({ ...prev, city: e.target.value }))}
-                    disabled={!editMode}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-                  />
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                   Dirección
                 </label>
                 <input
+                  id="address"
                   type="text"
                   value={profileForm.address}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, address: e.target.value }))}
+                  onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
                   disabled={!editMode}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                  className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                  Ciudad
+                </label>
+                <input
+                  id="city"
+                  type="text"
+                  value={profileForm.city}
+                  onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}
+                  disabled={!editMode}
+                  className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
                   País
                 </label>
                 <input
+                  id="country"
                   type="text"
                   value={profileForm.country}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, country: e.target.value }))}
+                  onChange={(e) => setProfileForm({ ...profileForm, country: e.target.value })}
                   disabled={!editMode}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                  className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
 
             {editMode && (
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setEditMode(false);
-                    setAvatarFile(null);
-                    setAvatarPreview(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                >
-                  <X className="w-4 h-4 mr-2 inline" />
-                  Cancelar
-                </button>
+              <div className="mt-6">
                 <button
                   onClick={handleSaveProfile}
-                  disabled={saving}
-                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                 >
-                  <Save className="w-4 h-4 mr-2" />
                   {saving ? 'Guardando...' : 'Guardar Cambios'}
+                  <Save className="w-4 h-4 ml-2" />
                 </button>
               </div>
             )}
           </div>
+        )}
 
-          {/* Sección de seguridad */}
-          <div className="bg-white rounded-lg shadow-sm border p-6 mt-6">
-            <h3 className="text-lg font-medium mb-4">Seguridad</h3>
-            
-            {!showPasswordForm ? (
-              <button
-                onClick={() => setShowPasswordForm(true)}
-                className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Cambiar Contraseña
-              </button>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contraseña Actual
-                  </label>
-                  <div className="relative">
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Seguridad
+          </h2>
+          <div className="bg-white shadow rounded-lg p-6 sm:p-8">
+            {showPasswordForm ? (
+              <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                      Contraseña Actual
+                    </label>
                     <input
+                      id="currentPassword"
                       type={showPasswords.current ? 'text' : 'password'}
                       value={passwordForm.currentPassword}
-                      onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                      className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                      className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm"
                     >
-                      {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPasswords.current ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
                     </button>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nueva Contraseña
-                  </label>
-                  <div className="relative">
+                  <div>
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nueva Contraseña
+                    </label>
                     <input
+                      id="newPassword"
                       type={showPasswords.new ? 'text' : 'password'}
                       value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                      className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm"
                     >
-                      {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPasswords.new ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
                     </button>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Confirmar Nueva Contraseña
-                  </label>
-                  <div className="relative">
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                      Confirmar Nueva Contraseña
+                    </label>
                     <input
+                      id="confirmPassword"
                       type={showPasswords.confirm ? 'text' : 'password'}
                       value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      className="block w-full text-sm text-gray-900 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm"
                     >
-                      {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPasswords.confirm ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
                     </button>
                   </div>
                 </div>
-
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowPasswordForm(false);
-                      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                    }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                  >
-                    Cancelar
-                  </button>
+                <div className="mt-4">
                   <button
                     onClick={handleChangePassword}
-                    disabled={saving}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                   >
-                    <Save className="w-4 h-4 mr-2" />
-                    {saving ? 'Actualizando...' : 'Actualizar Contraseña'}
+                    {saving ? 'Guardando...' : 'Cambiar Contraseña'}
+                    <Save className="w-4 h-4 ml-2" />
                   </button>
                 </div>
               </div>
+            ) : (
+              <div>
+                <p className="text-sm text-gray-500 mb-4">
+                  Para mantener la seguridad de tu cuenta, es recomendable cambiar tu contraseña periódicamente.
+                </p>
+                <button
+                  onClick={() => setShowPasswordForm(true)}
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Cambiar Contraseña
+                  <Lock className="w-4 h-4 ml-2" />
+                </button>
+              </div>
             )}
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Actividad Reciente
+          </h2>
+          <div className="bg-white shadow rounded-lg p-6 sm:p-8">
+            <p className="text-sm text-gray-500">
+              Último inicio de sesión: {new Date(profileData?.last_login || '').toLocaleString()}
+            </p>
+            <p className="text-sm text-gray-500">
+              Fecha de creación de la cuenta: {new Date(profileData?.created_at || '').toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Eliminar Cuenta
+          </h2>
+          <div className="bg-white shadow rounded-lg p-6 sm:p-8">
+            <p className="text-sm text-gray-500 mb-4">
+              Si deseas eliminar tu cuenta, ten en cuenta que esta acción es irreversible y se perderán todos tus datos.
+            </p>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            >
+              Eliminar Cuenta
+              <Trash2 className="w-4 h-4 ml-2" />
+            </button>
           </div>
         </div>
       </div>

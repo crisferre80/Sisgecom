@@ -135,19 +135,30 @@ const Sales: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Ventas</h1>
-          <p className="text-gray-600">Gestión de ventas y facturación</p>
+      {/* Header with Image */}
+      <div className="relative bg-gradient-to-r from-red-50 to-indigo-50 rounded-lg p-6 mb-6">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-6">
+            <div className="flex-shrink-0">
+              <img 
+                src="/Public/my assets/46171.jpg" 
+                alt="Ventas" 
+                className="w-20 h-20 object-cover rounded-lg shadow-md"
+              />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Ventas</h1>
+              <p className="text-gray-600">Gestión de ventas y facturación</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowNewSaleModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Plus className="h-5 w-5" />
+            Nueva Venta
+          </button>
         </div>
-        <button
-          onClick={() => setShowNewSaleModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-        >
-          <Plus className="h-5 w-5" />
-          Nueva Venta
-        </button>
       </div>
 
       {/* Stats Cards */}
