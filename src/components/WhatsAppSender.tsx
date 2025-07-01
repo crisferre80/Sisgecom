@@ -103,7 +103,7 @@ Para cualquier consulta, contáctenos.`,
       .replace('{nombre}', customer?.name || payment.customer_name)
       .replace('{monto}', `$${payment.amount.toFixed(2)}`)
       .replace('{fecha_vencimiento}', new Date(payment.due_date).toLocaleDateString())
-      .replace('{descripcion}', payment.description);
+      .replace('{descripcion}', payment.description ?? '');
   };
 
   const handleSendMessages = async () => {

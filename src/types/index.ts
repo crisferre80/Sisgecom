@@ -20,6 +20,7 @@ export interface Customer {
   customer_code?: string;
   first_name: string;
   last_name?: string;
+  name?: string; // Computed property or alias
   email?: string;
   phone?: string;
   address?: string;
@@ -31,6 +32,8 @@ export interface Customer {
   credit_limit?: number;
   discount_percentage?: number;
   is_active: boolean;
+  status?: 'active' | 'inactive' | 'suspended' | 'blocked'; // Status for payment module
+  total_debt?: number; // Total debt for payment tracking
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -238,4 +241,68 @@ export interface InventoryAlert {
   resolved_at?: string;
   resolved_by?: string;
   product?: Product;
+}
+
+// Tipos para el módulo de pagos
+export interface Payment {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  amount: number;
+  payment_method: 'efectivo' | 'transferencia' | 'billetera_virtual' | 'tarjeta';
+  wallet_type?: 'yape' | 'plin' | 'lukita' | 'tunki' | 'mercado_pago' | 'banco_digital' | 'otro' | 'other';
+  transaction_reference?: string;
+  status: 'pendiente' | 'pagado' | 'vencido' | 'cancelado';
+  due_date: string;
+  paid_date?: string; // Fecha cuando se pagó (si está pagado)
+  description?: string;
+  notes?: string; // Notas adicionales sobre el pago
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+}
+
+export interface VirtualWallet {
+  id: string;
+  customer_id: string;
+  wallet_type: 'yape' | 'plin' | 'lukita' | 'tunki' | 'mercado_pago' | 'banco_digital' | 'otro' | 'other';
+  wallet_identifier: string; // Phone number, email, etc.
+  alias?: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentSummary {
+  total_pending: number;
+  total_paid: number;
+  total_overdue: number;
+  pending_count: number;
+  paid_count: number;
+  overdue_count: number;
+  this_month_collected: number;
+  customers_with_debt: number;
+}
+
+export interface PaymentReminder {
+  id: string;
+  payment_id: string;
+  reminder_type: 'whatsapp' | 'email' | 'sms';
+  reminder_date: string;
+  message: string;
+  sent_at?: string;
+  delivery_status: 'pending' | 'sent' | 'delivered' | 'failed';
+  created_at: string;
+}
+
+export interface WhatsAppContact {
+  message_count: number;
+  id: string;
+  customer_id: string;
+  phone_number: string;
+  display_name?: string;
+  is_verified: boolean;
+  last_message_sent?: string;
+  created_at: string;
+  updated_at: string;
 }

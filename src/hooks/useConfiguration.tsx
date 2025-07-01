@@ -52,6 +52,38 @@ export const useConfiguration = (): UseConfigurationReturn => {
     setError(message);
   };
 
+  // Audit Logs - Declarar primero para evitar problemas de dependencias
+  const logAuditEvent = useCallback(async (
+    action: string,
+    entityType: string,
+    entityId?: string,
+    oldValues?: Record<string, unknown>,
+    newValues?: Record<string, unknown>,
+    details?: string
+  ) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const { error } = await supabase.rpc('log_audit_event', {
+        p_user_id: user.user.id,
+        p_user_email: user.user.email || '',
+        p_action: action,
+        p_entity_type: entityType,
+        p_entity_id: entityId || null,
+        p_old_values: oldValues || null,
+        p_new_values: newValues || null,
+        p_details: details || null
+      });
+
+      if (error) {
+        console.error('Error logging audit event:', error);
+      }
+    } catch (error) {
+      console.error('Error logging audit event:', error);
+    }
+  }, []);
+
   // Company Settings
   const loadCompanySettings = useCallback(async () => {
     try {
@@ -111,7 +143,7 @@ export const useConfiguration = (): UseConfigurationReturn => {
     } finally {
       setLoading(false);
     }
-  }, [companySettings]);
+  }, [companySettings, loadCompanySettings, logAuditEvent]);
 
   // System Settings
   const loadSystemSettings = useCallback(async () => {
@@ -169,7 +201,7 @@ export const useConfiguration = (): UseConfigurationReturn => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadSystemSettings, logAuditEvent]);
 
   const deleteSystemSetting = useCallback(async (id: string) => {
     try {
@@ -203,7 +235,7 @@ export const useConfiguration = (): UseConfigurationReturn => {
     } finally {
       setLoading(false);
     }
-  }, [systemSettings]);
+  }, [loadSystemSettings, logAuditEvent, systemSettings]);
 
   const getSetting = useCallback((key: string): SystemSettings | undefined => {
     return systemSettings.find(setting => setting.setting_key === key);
@@ -220,6 +252,7 @@ export const useConfiguration = (): UseConfigurationReturn => {
       setLoading(true);
       setError(null);
       
+      // Primero verificar si la tabla existe
       const { data, error } = await supabase
         .from('inventory_alerts')
         .select(`
@@ -229,10 +262,21 @@ export const useConfiguration = (): UseConfigurationReturn => {
         .eq('is_resolved', false)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        // Manejo específico de errores comunes
+        if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
+          handleError(error, 'La tabla inventory_alerts no existe. Debe aplicar las migraciones del módulo de configuración.');
+        } else if (error.code === '42P01') {
+          handleError(error, 'Error de base de datos: Tabla inventory_alerts no encontrada. Verifique las migraciones.');
+        } else {
+          handleError(error, `Error al cargar alertas de inventario: ${error.message}`);
+        }
+        return;
+      }
+      
       setInventoryAlerts(data || []);
     } catch (error) {
-      handleError(error, 'Error al cargar alertas de inventario');
+      handleError(error, 'Error inesperado al cargar alertas de inventario');
     } finally {
       setLoading(false);
     }
@@ -275,7 +319,7 @@ export const useConfiguration = (): UseConfigurationReturn => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadInventoryAlerts, logAuditEvent]);
 
   const generateAlerts = useCallback(async () => {
     try {
@@ -293,7 +337,7 @@ export const useConfiguration = (): UseConfigurationReturn => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadInventoryAlerts]);
 
   // Audit Logs
   const loadAuditLogs = useCallback(async () => {
@@ -313,37 +357,6 @@ export const useConfiguration = (): UseConfigurationReturn => {
       handleError(error, 'Error al cargar logs de auditoría');
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  const logAuditEvent = useCallback(async (
-    action: string,
-    entityType: string,
-    entityId?: string,
-    oldValues?: Record<string, unknown>,
-    newValues?: Record<string, unknown>,
-    details?: string
-  ) => {
-    try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
-
-      const { error } = await supabase.rpc('log_audit_event', {
-        p_user_id: user.user.id,
-        p_user_email: user.user.email || '',
-        p_action: action,
-        p_entity_type: entityType,
-        p_entity_id: entityId || null,
-        p_old_values: oldValues || null,
-        p_new_values: newValues || null,
-        p_details: details || null
-      });
-
-      if (error) {
-        console.error('Error logging audit event:', error);
-      }
-    } catch (error) {
-      console.error('Error logging audit event:', error);
     }
   }, []);
 

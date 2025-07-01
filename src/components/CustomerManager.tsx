@@ -23,7 +23,7 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
     email: string;
     phone: string;
     address: string;
-    status: 'active' | 'inactive' | 'blocked';
+    status: 'active' | 'inactive' | 'suspended' | 'blocked';
   }>({
     name: '',
     email: '',
@@ -34,7 +34,7 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
 
   const [walletForm, setWalletForm] = useState<{
     customer_id: string;
-    wallet_type: 'yape' | 'plin' | 'tunki' | 'mercado_pago' | 'banco_digital' | 'otro';
+    wallet_type: 'yape' | 'plin' | 'lukita' | 'tunki' | 'mercado_pago' | 'banco_digital' | 'otro' | 'other';
     wallet_identifier: string;
     alias: string;
     is_verified: boolean;
@@ -213,9 +213,11 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
     { value: 'yape', label: 'Yape', color: 'bg-purple-100 text-purple-800' },
     { value: 'plin', label: 'Plin', color: 'bg-blue-100 text-blue-800' },
     { value: 'tunki', label: 'Tunki', color: 'bg-orange-100 text-orange-800' },
+    { value: 'lukita', label: 'Lukita', color: 'bg-yellow-100 text-yellow-800' },
     { value: 'mercado_pago', label: 'Mercado Pago', color: 'bg-cyan-100 text-cyan-800' },
     { value: 'banco_digital', label: 'Banco Digital', color: 'bg-green-100 text-green-800' },
-    { value: 'otro', label: 'Otro', color: 'bg-gray-100 text-gray-800' }
+    { value: 'otro', label: 'Otro', color: 'bg-gray-100 text-gray-800' },
+    { value: 'other', label: 'Other', color: 'bg-gray-100 text-gray-800' }
   ];
 
   if (loading && customers.length === 0) {
@@ -286,13 +288,15 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
                         <div className="flex-1">
                           <div className="flex items-center">
                             <User className="h-4 w-4 text-gray-500 mr-2" />
-                            <span className="font-medium text-gray-900">{customer.name}</span>
+                            <span className="font-medium text-gray-900">
+                              {customer.name || `${customer.first_name} ${customer.last_name || ''}`.trim()}
+                            </span>
                             <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                              customer.status === 'active'
+                              (customer.status || 'active') === 'active'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
                             }`}>
-                              {customer.status}
+                              {customer.status || 'active'}
                             </span>
                           </div>
                           
@@ -312,9 +316,9 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
                           <div className="mt-2 text-sm">
                             <span className="text-gray-500">Deuda: </span>
                             <span className={`font-medium ${
-                              customer.total_debt > 0 ? 'text-red-600' : 'text-green-600'
+                              (customer.total_debt || 0) > 0 ? 'text-red-600' : 'text-green-600'
                             }`}>
-                              ${customer.total_debt.toFixed(2)}
+                              ${(customer.total_debt || 0).toFixed(2)}
                             </span>
                           </div>
                           
@@ -344,11 +348,11 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
                               e.stopPropagation();
                               setEditingCustomer(customer);
                               setCustomerForm({
-                                name: customer.name,
+                                name: customer.name || `${customer.first_name} ${customer.last_name || ''}`.trim(),
                                 email: customer.email || '',
-                                phone: customer.phone,
+                                phone: customer.phone || '',
                                 address: customer.address || '',
-                                status: customer.status
+                                status: (customer.status || 'active') as 'active' | 'inactive' | 'suspended' | 'blocked'
                               });
                               setShowCustomerForm(true);
                             }}
@@ -375,7 +379,7 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
               {/* Billeteras del Cliente Seleccionado */}
               <div>
                 <h4 className="text-md font-medium text-gray-900 mb-4">
-                  Billeteras {selectedCustomer && `de ${selectedCustomer.name}`}
+                  Billeteras {selectedCustomer && `de ${selectedCustomer.name || `${selectedCustomer.first_name} ${selectedCustomer.last_name || ''}`.trim()}`}
                 </h4>
                 
                 {selectedCustomer ? (
@@ -524,11 +528,15 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
                   </label>
                   <select
                     value={customerForm.status}
-                    onChange={(e) => setCustomerForm(prev => ({ ...prev, status: e.target.value as Customer['status'] }))}
+                    onChange={(e) => setCustomerForm(prev => ({ 
+                      ...prev, 
+                      status: e.target.value as 'active' | 'inactive' | 'suspended' | 'blocked'
+                    }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="active">Activo</option>
                     <option value="inactive">Inactivo</option>
+                    <option value="suspended">Suspendido</option>
                     <option value="blocked">Bloqueado</option>
                   </select>
                 </div>
@@ -580,7 +588,7 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ onClose, onCustomerCr
                     <option value="">Seleccionar cliente</option>
                     {customers.map((customer) => (
                       <option key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.phone}
+                        {customer.name || `${customer.first_name} ${customer.last_name || ''}`.trim()} - {customer.phone}
                       </option>
                     ))}
                   </select>

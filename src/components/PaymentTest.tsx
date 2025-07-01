@@ -14,7 +14,9 @@ const PaymentTest: React.FC = () => {
     transaction_reference: 'TXN123',
     status: 'pendiente',
     due_date: '2025-01-15T00:00:00Z',
+    paid_date: undefined, // Se establece cuando se paga
     description: 'Test payment',
+    notes: 'Notas de prueba para el pago',
     created_at: '2025-06-29T00:00:00Z',
     updated_at: '2025-06-29T00:00:00Z',
     created_by: 'user-1'
@@ -22,10 +24,15 @@ const PaymentTest: React.FC = () => {
 
   const testCustomer: Customer = {
     id: 'customer-1',
+    first_name: 'Test',
+    last_name: 'Customer',
     name: 'Test Customer',
     phone: '+51987654321',
     email: 'test@example.com',
+    customer_type: 'individual',
+    is_active: true,
     created_at: '2025-06-29T00:00:00Z',
+    updated_at: '2025-06-29T00:00:00Z',
     total_debt: 100.50,
     status: 'active'
   };
