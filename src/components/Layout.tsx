@@ -5,7 +5,6 @@ import {
   ShoppingCart, 
   CreditCard, 
   BarChart3, 
-  Users, 
   UserCheck,
   Settings,
   LogOut,
@@ -34,7 +33,6 @@ const Layout: React.FC = () => {
     { name: 'Ventas', href: '/sales', icon: ShoppingCart },
     { name: 'Clientes', href: '/customers', icon: UserCheck },
     { name: 'Pagos', href: '/payments', icon: CreditCard },
-    { name: 'Usuarios', href: '/users', icon: Users },
     { name: 'Configuración', href: '/settings', icon: Settings },
   ];
 
